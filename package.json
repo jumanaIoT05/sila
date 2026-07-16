@@ -5,7 +5,7 @@
   "description": "Sila | صِلة — AI-powered personal finance platform (SMS-based).",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
@@ -17,6 +17,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.12.0",
     "@prisma/client": "^5.22.0",
     "jsonwebtoken": "^9.0.2",
     "next": "^14.2.5",
