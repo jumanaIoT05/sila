@@ -1,0 +1,17 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next
+/out
+
+# env
+.env
+.env.local
+
+# prisma
+# (migrations are committed; local db is not)
+
+# misc
+*.log
+.DS_Store

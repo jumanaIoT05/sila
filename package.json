@@ -1,0 +1,40 @@
+{
+  "name": "sila",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sila | صِلة — AI-powered personal finance platform (SMS-based).",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "db:reset": "prisma migrate reset --force",
+    "db:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "jsonwebtoken": "^9.0.2",
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.39",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^3.4.7",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}

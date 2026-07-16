@@ -1,0 +1,26 @@
+# Local PostgreSQL for Sela. Brings the database up with one command:
+#   docker compose up -d
+#
+# Credentials/db name match the default DATABASE_URL in .env.example:
+#   postgresql://postgres:postgres@localhost:5432/sela
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sela-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sela
+    ports:
+      - "5432:5432"
+    volumes:
+      - sela_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sela"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sela_pgdata:

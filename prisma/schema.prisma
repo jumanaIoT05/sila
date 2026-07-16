@@ -1,0 +1,196 @@
+// =============================================================
+// Sila | صِلة — Prisma schema
+// Maps 1:1 to sela_schema.sql (14 tables, 15 FKs, all 1-to-many).
+// Prisma models use camelCase; @map/@@map keep the generated
+// PostgreSQL identical to the approved snake_case schema.
+// =============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================
+// LOOKUP TABLES (6)
+// =====================================================
+
+model Bank {
+  bankId   Int    @id @default(autoincrement()) @map("bank_id")
+  bankName String @map("bank_name") @db.VarChar(100)
+
+  accounts Account[]
+
+  @@map("bank")
+}
+
+model TransactionType {
+  transactionTypeId Int    @id @default(autoincrement()) @map("transaction_type_id")
+  typeName          String @map("type_name") @db.VarChar(50)
+
+  transactions Transaction[]
+
+  @@map("transaction_type")
+}
+
+model SpendingCategory {
+  spendingCategoryId Int    @id @default(autoincrement()) @map("spending_category_id")
+  categoryName       String @map("category_name") @db.VarChar(50)
+
+  transactions Transaction[]
+  budgets      SmartBudget[]
+
+  @@map("spending_category")
+}
+
+model AiOutputType {
+  aiOutputTypeId Int    @id @default(autoincrement()) @map("ai_output_type_id")
+  outputTypeName String @map("output_type_name") @db.VarChar(50)
+
+  aiOutputs AiOutput[]
+
+  @@map("ai_output_type")
+}
+
+model HealthStatus {
+  healthStatusId Int    @id @default(autoincrement()) @map("health_status_id")
+  statusName     String @map("status_name") @db.VarChar(50)
+
+  healthSnapshots HealthScoreSnapshot[]
+
+  @@map("health_status")
+}
+
+model GoalCalculationMode {
+  calculationModeId Int    @id @default(autoincrement()) @map("calculation_mode_id")
+  modeName          String @map("mode_name") @db.VarChar(50)
+
+  goals FinancialGoal[]
+
+  @@map("goal_calculation_mode")
+}
+
+// =====================================================
+// CORE ENTITIES (8)
+// =====================================================
+
+model AppUser {
+  userId      Int      @id @default(autoincrement()) @map("user_id")
+  phoneNumber String   @unique @map("phone_number") @db.VarChar(20)
+  fullName    String?  @map("full_name") @db.VarChar(100)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  accounts        Account[]
+  transactions    Transaction[]
+  aiOutputs       AiOutput[]
+  financialScores FinancialScoreSnapshot[]
+  healthScores    HealthScoreSnapshot[]
+  budgets         SmartBudget[]
+  goals           FinancialGoal[]
+
+  @@map("app_user")
+}
+
+model Account {
+  accountId       Int     @id @default(autoincrement()) @map("account_id")
+  userId          Int     @map("user_id")
+  bankId          Int     @map("bank_id")
+  lastFourDigits  String  @map("last_four_digits") @db.Char(4)
+  currentBalance  Decimal @map("current_balance") @db.Decimal(14, 2)
+  isManuallyAdded Boolean @default(false) @map("is_manually_added")
+  // Soft-remove flag. A removed account stops future SMS tracking and drops out
+  // of the balance/active list, but its historical transactions are preserved.
+  isActive        Boolean @default(true) @map("is_active")
+
+  user         AppUser       @relation(fields: [userId], references: [userId])
+  bank         Bank          @relation(fields: [bankId], references: [bankId])
+  transactions Transaction[]
+
+  @@map("account")
+}
+
+model Transaction {
+  transactionId      Int      @id @default(autoincrement()) @map("transaction_id")
+  userId             Int      @map("user_id")
+  accountId          Int      @map("account_id")
+  transactionTypeId  Int      @map("transaction_type_id")
+  spendingCategoryId Int      @map("spending_category_id")
+  amount             Decimal  @db.Decimal(14, 2)
+  transactionDate    DateTime @map("transaction_date")
+
+  user            AppUser          @relation(fields: [userId], references: [userId])
+  account         Account          @relation(fields: [accountId], references: [accountId])
+  transactionType TransactionType  @relation(fields: [transactionTypeId], references: [transactionTypeId])
+  category        SpendingCategory @relation(fields: [spendingCategoryId], references: [spendingCategoryId])
+
+  @@map("transaction")
+}
+
+model AiOutput {
+  aiOutputId    Int      @id @default(autoincrement()) @map("ai_output_id")
+  userId        Int      @map("user_id")
+  aiOutputTypeId Int     @map("ai_output_type_id")
+  content       String   @db.Text
+  generatedAt   DateTime @default(now()) @map("generated_at")
+
+  user       AppUser      @relation(fields: [userId], references: [userId])
+  outputType AiOutputType @relation(fields: [aiOutputTypeId], references: [aiOutputTypeId])
+
+  @@map("ai_output")
+}
+
+model FinancialScoreSnapshot {
+  financialScoreId Int      @id @default(autoincrement()) @map("financial_score_id")
+  userId           Int      @map("user_id")
+  scoreValue       Int      @map("score_value")
+  snapshotDate     DateTime @default(now()) @map("snapshot_date")
+
+  user AppUser @relation(fields: [userId], references: [userId])
+
+  @@map("financial_score_snapshot")
+}
+
+model HealthScoreSnapshot {
+  healthScoreId  Int      @id @default(autoincrement()) @map("health_score_id")
+  userId         Int      @map("user_id")
+  healthStatusId Int      @map("health_status_id")
+  snapshotDate   DateTime @default(now()) @map("snapshot_date")
+
+  user   AppUser      @relation(fields: [userId], references: [userId])
+  status HealthStatus @relation(fields: [healthStatusId], references: [healthStatusId])
+
+  @@map("health_score_snapshot")
+}
+
+model SmartBudget {
+  budgetId           Int     @id @default(autoincrement()) @map("budget_id")
+  userId             Int     @map("user_id")
+  spendingCategoryId Int     @map("spending_category_id")
+  recommendedAmount  Decimal @map("recommended_amount") @db.Decimal(14, 2)
+
+  user     AppUser          @relation(fields: [userId], references: [userId])
+  category SpendingCategory @relation(fields: [spendingCategoryId], references: [spendingCategoryId])
+
+  @@map("smart_budget")
+}
+
+model FinancialGoal {
+  goalId              Int     @id @default(autoincrement()) @map("goal_id")
+  userId              Int     @map("user_id")
+  calculationModeId   Int     @map("calculation_mode_id")
+  goalType            String  @map("goal_type") @db.VarChar(255)
+  targetAmount        Decimal @map("target_amount") @db.Decimal(14, 2)
+  monthlySavingAmount Decimal @map("monthly_saving_amount") @db.Decimal(14, 2)
+  estimatedMonths     Int     @map("estimated_months")
+  // Amount the user has ALLOCATED toward this goal (a budgeting decision only —
+  // no real money is moved or reserved). Progress = savedAmount / targetAmount.
+  savedAmount         Decimal @default(0) @map("saved_amount") @db.Decimal(14, 2)
+
+  user AppUser             @relation(fields: [userId], references: [userId])
+  mode GoalCalculationMode @relation(fields: [calculationModeId], references: [calculationModeId])
+
+  @@map("financial_goal")
+}
