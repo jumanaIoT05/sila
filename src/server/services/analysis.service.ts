@@ -16,7 +16,15 @@ import {
   daysAgo,
   isInRange,
 } from "../util/dates";
+import { NEUTRAL_CATEGORY } from "@/config/constants";
 import type { CategoryTotal, MonthlyComparison } from "@/types";
+
+// Transfers between the user's own accounts (category "Transfer") are neutral:
+// they move money but are never income or spending, so they're excluded from
+// every aggregation below (which propagates to scores, budgets, AI, charts).
+function isNeutral(categoryName: string): boolean {
+  return categoryName === NEUTRAL_CATEGORY;
+}
 
 // Selectable dashboard period. Defaults to "monthly" everywhere it's omitted.
 export type Period = "all" | "days" | "monthly" | "yearly";
@@ -133,6 +141,9 @@ export async function computeFinancials(
   const categoryMap = new Map<string, number>();
 
   for (const t of txns) {
+    // Neutral (internal Transfer) — never income or spending.
+    if (isNeutral(t.category.categoryName)) continue;
+
     const amount = toNumber(t.amount);
     const date = t.transactionDate;
     const income_ = isIncomeType(t.transactionType.typeName);
@@ -189,11 +200,12 @@ export async function categorySpendingThisMonth(userId: number): Promise<Map<num
   const monthStart = startOfMonth();
   const txns = await prisma.transaction.findMany({
     where: { userId, transactionDate: { gte: monthStart } },
-    include: { transactionType: true },
+    include: { transactionType: true, category: true },
   });
   const byCat = new Map<number, number>();
   for (const t of txns) {
     if (isIncomeType(t.transactionType.typeName)) continue;
+    if (isNeutral(t.category.categoryName)) continue; // neutral transfers don't use budget
     byCat.set(t.spendingCategoryId, (byCat.get(t.spendingCategoryId) ?? 0) + toNumber(t.amount));
   }
   return byCat;

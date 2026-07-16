@@ -1,20 +1,20 @@
 // =============================================================
 // Recalculation orchestrator (FR-13).
 // The single entry point invoked after EVERY data mutation
-// (new transaction, ingested SMS, manual balance change). Keeps all
-// derived data (scores, health, AI outputs) fresh in real time.
+// (new transaction, ingested SMS, manual balance change, budget edit…).
+// Keeps all FINANCIAL data fresh in real time.
 //
-// Centralizing this means no endpoint duplicates recalculation logic.
-// Dashboard aggregates and budget status are computed on-read, so they
-// need no persistence step here.
+// AI is deliberately NOT run here. Financial calculations (scores, health,
+// budgets, analytics) are the app's responsibility and must stay instant and
+// reliable. AI analysis (insights/recommendations/tips) is generated ONLY on
+// explicit user request (POST /api/ai) so it can never slow down or break a
+// transaction, and external-provider calls stay bounded.
 // =============================================================
 
 import { computeAndSnapshotScores } from "./score.service";
-import { regenerateAiOutputs } from "./ai.service";
 
 export async function recalculate(userId: number): Promise<void> {
-  // 1. Re-score financial + health (snapshots).
+  // Re-score financial + health (snapshots). Dashboard aggregates and budget
+  // status are computed on-read, so they need no persistence step here.
   await computeAndSnapshotScores(userId);
-  // 2. Regenerate recommendations / insights / score tips.
-  await regenerateAiOutputs(userId);
 }

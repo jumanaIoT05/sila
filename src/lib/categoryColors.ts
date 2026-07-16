@@ -9,6 +9,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Restaurants: "#D4AF37", // gold
   Transportation: "#8AA6BC", // light blue
   Subscriptions: "#B8952B", // dark gold
+  Transfer: "#5B7B9A", // muted blue — neutral movement
   Entertainment: "#4E6E8A",
   Health: "#9CB2C4",
   Other: "#AEB8C4", // neutral
@@ -33,6 +34,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   Groceries: "🛒",
   Bills: "🧾",
   Subscriptions: "📺",
+  Transfer: "🔁",
   Entertainment: "🎬",
   Health: "💊",
   Other: "📦",

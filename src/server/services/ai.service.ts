@@ -1,12 +1,19 @@
 // =============================================================
 // AI service (FR-7, FR-8-tips, FR-11).
-// Builds the financial context, calls the active AI provider, and
-// PERSISTS every output through the generic ai_output entity,
-// discriminated by ai_output_type (RECOMMENDATION / INSIGHT / SCORE_TIP).
+// Builds the ALREADY-COMPUTED financial context, hands it to the active AI
+// provider, and PERSISTS the returned natural-language text through the
+// generic ai_output entity (RECOMMENDATION / INSIGHT / SCORE_TIP).
+//
+// Two hard rules:
+//  1. The provider NEVER computes financial values — it only analyzes the
+//     numbers the app already computed (AiContext) and returns text.
+//  2. AI runs ONLY on explicit request (regenerateAiOutputs). It is best-effort:
+//     a provider failure must never break the caller. Reads (dashboard, lists)
+//     use PERSISTED outputs and never call the provider.
 // =============================================================
 
 import { prisma } from "../db/prisma";
-import { getAIProvider, type AiContext } from "../ai";
+import { getAIProvider, type AiContext, type AiAnalysis } from "../ai";
 import { computeFinancials, type Period } from "./analysis.service";
 import { getBudgetStatus } from "./budget.service";
 import { getLatestScore } from "./score.service";
@@ -40,33 +47,38 @@ export async function buildContext(
   };
 }
 
-// Live, NON-persisted AI highlights for a given period. Used by the dashboard
-// so its AI insight updates as the user switches period tabs, without polluting
-// the persisted ai_output history (which stays the monthly running record).
-export async function periodHighlights(userId: number, period: Period): Promise<string[]> {
-  const provider = getAIProvider();
-  const ctx = await buildContext(userId, period);
+// Dashboard AI highlights — read from PERSISTED outputs only (no provider
+// call). This keeps the dashboard instant and ensures AI is invoked strictly
+// on explicit user request, not on every page load.
+export async function getLatestHighlights(userId: number): Promise<string[]> {
   const [insights, recs] = await Promise.all([
-    provider.generateInsights(ctx),
-    provider.generateRecommendations(ctx),
+    listAiOutputs(userId, "INSIGHT"),
+    listAiOutputs(userId, "RECOMMENDATION"),
   ]);
-  const combined = [...insights.slice(0, 2), ...recs.slice(0, 1)];
-  // Dedupe while preserving order.
+  const combined = [
+    ...insights.slice(0, 2).map((o) => o.content),
+    ...recs.slice(0, 1).map((o) => o.content),
+  ];
   return [...new Set(combined)];
 }
 
-// Regenerates all AI outputs for the user (called by recalc on every change).
-// Replaces the current live set but keeps history is optional; here we append
-// fresh outputs so ai_output serves as a running history (FR: persist for history).
-export async function regenerateAiOutputs(userId: number): Promise<void> {
+// Runs an AI analysis for the user — called ONLY on explicit request
+// (POST /api/ai). One provider call returns every section. The provider never
+// throws (Gemini falls back to Mock internally), so this never breaks the
+// caller. Insights / recommendations / financial-health are also persisted to
+// ai_output so the dashboard highlights and Score tip stay populated.
+export async function analyzeFinances(userId: number): Promise<AiAnalysis> {
   const provider = getAIProvider();
   const ctx = await buildContext(userId);
 
-  const [recs, insights, tip] = await Promise.all([
-    provider.generateRecommendations(ctx),
-    provider.generateInsights(ctx),
-    provider.generateScoreTip(ctx),
-  ]);
+  let analysis: AiAnalysis;
+  try {
+    analysis = await provider.analyze(ctx);
+  } catch (e) {
+    // Extra safety net — providers already guard, but never let AI break here.
+    console.error("[ai] analyze failed unexpectedly — returning empty analysis:", e);
+    analysis = { financialHealth: "", insights: [], recommendations: [], goalAdvice: [], budgetSuggestions: [] };
+  }
 
   const [recTypeId, insightTypeId, tipTypeId] = await Promise.all([
     aiTypeId("RECOMMENDATION"),
@@ -75,12 +87,15 @@ export async function regenerateAiOutputs(userId: number): Promise<void> {
   ]);
 
   const rows = [
-    ...recs.map((content) => ({ userId, aiOutputTypeId: recTypeId, content })),
-    ...insights.map((content) => ({ userId, aiOutputTypeId: insightTypeId, content })),
-    { userId, aiOutputTypeId: tipTypeId, content: tip },
+    ...analysis.recommendations.map((content) => ({ userId, aiOutputTypeId: recTypeId, content })),
+    ...analysis.insights.map((content) => ({ userId, aiOutputTypeId: insightTypeId, content })),
+    ...(analysis.financialHealth
+      ? [{ userId, aiOutputTypeId: tipTypeId, content: analysis.financialHealth }]
+      : []),
   ];
+  if (rows.length > 0) await prisma.aiOutput.createMany({ data: rows });
 
-  await prisma.aiOutput.createMany({ data: rows });
+  return analysis;
 }
 
 // Returns the most recent outputs, optionally filtered by type.

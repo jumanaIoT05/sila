@@ -1,22 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import { Header } from "@/components/layout/Header";
 import { Card, SectionTitle } from "@/components/ui/Card";
 import { WalletCard } from "@/components/dashboard/WalletCard";
 import { TransactionRow } from "@/components/dashboard/TransactionRow";
-import { Welcome } from "@/components/dashboard/Welcome";
 import { NotificationBell } from "@/components/layout/NotificationBell";
-import { Walkthrough } from "@/components/onboarding/Walkthrough";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { Loading, ErrorState } from "@/components/ui/State";
 import { categoryColor } from "@/lib/categoryColors";
 import { sar } from "@/lib/format";
 import type { DashboardDTO, ProfileDTO } from "@/types";
-
-const WALKTHROUGH_KEY = "sila_walkthrough_seen";
 
 function greetingWord(): string {
   const h = new Date().getHours();
@@ -27,45 +24,36 @@ function greetingWord(): string {
 
 // FR-6: Smart Dashboard (Home), scoped to the current month.
 export default function DashboardPage() {
+  const router = useRouter();
   const { data, loading, error } = useApi<DashboardDTO>("/dashboard");
   const { data: profile } = useApi<ProfileDTO>("/profile");
 
-  // First-time walkthrough (shown once, persisted in localStorage).
-  const [showWalkthrough, setShowWalkthrough] = useState(false);
+  // Onboarding is "complete" once the user has ≥1 linked account. If Home is
+  // reached before that (walkthrough / Get Started belong to the onboarding
+  // flow now), resume it. The demo user always has accounts, so it's unaffected.
   useEffect(() => {
-    if (!localStorage.getItem(WALKTHROUGH_KEY)) setShowWalkthrough(true);
-  }, []);
-  function finishWalkthrough() {
-    localStorage.setItem(WALKTHROUGH_KEY, "1");
-    setShowWalkthrough(false);
-  }
+    if (data && data.accounts.length === 0) router.replace("/welcome");
+  }, [data, router]);
 
   if (loading) return <Loading />;
   if (error) return <ErrorState message={error} />;
   if (!data) return null;
+  if (data.accounts.length === 0) return <Loading />; // redirecting to onboarding
 
   const firstName = (profile?.fullName || "there").split(" ")[0];
-  const isEmpty =
-    data.recentTransactions.length === 0 && data.income === 0 && data.spending === 0;
 
   const greeting = (
     <span>
-      {greetingWord()}, <span className="text-gold-dark">{firstName}</span>
+      {greetingWord()}, <span className="text-gold-dark">{firstName}</span> 👋
     </span>
   );
 
   return (
     <div>
-      {showWalkthrough && <Walkthrough onDone={finishWalkthrough} />}
-
       <Header title={greeting} subtitle="Here's your Sila overview" rightExtra={<NotificationBell />} />
 
-      {isEmpty ? (
-        <Welcome />
-      ) : (
-        <>
-          {/* Total Balance wallet */}
-          <WalletCard totalBalance={data.totalBalance} accounts={data.accounts} />
+      {/* Total Balance wallet */}
+      <WalletCard totalBalance={data.totalBalance} accounts={data.accounts} />
 
           {/* Top Insights */}
           <div className="mb-4 mt-5 flex items-center justify-between">
@@ -164,8 +152,6 @@ export default function DashboardPage() {
               ))}
             </ul>
           </Card>
-        </>
-      )}
     </div>
   );
 }

@@ -16,6 +16,19 @@ export function shortDate(iso: string): string {
 }
 
 // Unambiguous month label, e.g. "Jul '26" (the 26 is the year, not the day).
+// "Today at 4:35 PM" / "Yesterday at 9:02 AM" / "Jul 3 at 2:10 PM".
+export function lastAnalyzedLabel(d: Date): string {
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+  if (sameDay) return `Today at ${time}`;
+  if (isYesterday) return `Yesterday at ${time}`;
+  return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} at ${time}`;
+}
+
 export function monthLabel(iso: string): string {
   const d = new Date(iso);
   const month = d.toLocaleDateString("en-US", { month: "short" });

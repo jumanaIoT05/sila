@@ -2,21 +2,30 @@
 
 import { createContext, useCallback, useContext, useState } from "react";
 
-// Lightweight success/info toast system. Toasts auto-dismiss after a few
-// seconds. Wired into success actions (goal created, budget updated, …) in a
-// later phase; the provider is mounted app-wide now.
+// Lightweight toast system. Toasts auto-dismiss; some carry an inline action
+// (e.g. "Undo") and stay a little longer.
 
 type ToastKind = "success" | "info" | "error";
 interface Toast {
   id: number;
   kind: ToastKind;
   message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}
+
+interface ActionOptions {
+  actionLabel: string;
+  onAction: () => void;
+  durationMs?: number;
 }
 
 interface ToastApi {
   toast: (message: string, kind?: ToastKind) => void;
   success: (message: string) => void;
   error: (message: string) => void;
+  // Toast with an inline action button (e.g. Undo). Stays ~5s by default.
+  action: (message: string, opts: ActionOptions) => void;
 }
 
 const Ctx = createContext<ToastApi | null>(null);
@@ -30,19 +39,25 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((t) => t.filter((x) => x.id !== id));
   }, []);
 
-  const toast = useCallback(
-    (message: string, kind: ToastKind = "success") => {
+  const push = useCallback(
+    (t: Omit<Toast, "id">, durationMs: number) => {
       const id = nextId++;
-      setToasts((t) => [...t, { id, kind, message }]);
-      setTimeout(() => remove(id), 2800);
+      setToasts((prev) => [...prev, { id, ...t }]);
+      setTimeout(() => remove(id), durationMs);
+      return id;
     },
     [remove]
   );
 
   const api: ToastApi = {
-    toast,
-    success: (m) => toast(m, "success"),
-    error: (m) => toast(m, "error"),
+    toast: (message, kind = "success") => push({ message, kind }, 2800),
+    success: (message) => push({ message, kind: "success" }, 2800),
+    error: (message) => push({ message, kind: "error" }, 2800),
+    action: (message, opts) =>
+      push(
+        { message, kind: "success", actionLabel: opts.actionLabel, onAction: opts.onAction },
+        opts.durationMs ?? 5000
+      ),
   };
 
   return (
@@ -60,6 +75,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           >
             <span>{t.kind === "error" ? "⚠️" : "✅"}</span>
             <span>{t.message}</span>
+            {t.actionLabel && t.onAction && (
+              <button
+                onClick={() => {
+                  t.onAction?.();
+                  remove(t.id);
+                }}
+                className="ml-1 rounded-md bg-white/20 px-2 py-0.5 text-xs font-bold hover:bg-white/30"
+              >
+                {t.actionLabel}
+              </button>
+            )}
           </div>
         ))}
       </div>

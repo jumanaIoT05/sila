@@ -28,7 +28,7 @@ export async function requestOtp(phoneNumber: string): Promise<{ sent: true }> {
 export async function verifyOtp(
   phoneNumber: string,
   code: string
-): Promise<{ token: string; userId: number; isNewUser: boolean }> {
+): Promise<{ token: string; userId: number; isNewUser: boolean; hasName: boolean }> {
   if (code !== MOCK_OTP) {
     throw new AppError("Invalid OTP code", 401);
   }
@@ -40,8 +40,13 @@ export async function verifyOtp(
 
   const token = signToken({ userId: user.userId, phoneNumber: user.phoneNumber });
 
-  // "New user" = no accounts yet → frontend routes them into onboarding.
+  // Onboarding state drives new-user routing: name → walkthrough → banks.
   const accountCount = await prisma.account.count({ where: { userId: user.userId } });
 
-  return { token, userId: user.userId, isNewUser: accountCount === 0 };
+  return {
+    token,
+    userId: user.userId,
+    isNewUser: accountCount === 0, // no linked accounts yet
+    hasName: !!user.fullName,
+  };
 }

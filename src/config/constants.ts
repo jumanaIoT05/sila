@@ -26,6 +26,7 @@ export const SPENDING_CATEGORIES = [
   "Bills",
   "Groceries",
   "Subscriptions",
+  "Transfer",
   "Entertainment",
   "Health",
   "Income",
@@ -40,11 +41,29 @@ export const CATEGORIZABLE_CATEGORIES = [
   "Transportation",
   "Groceries",
   "Subscriptions",
+  "Transfer",
   "Other",
 ] as const;
 
 // Fallback category when classification is uncertain.
 export const FALLBACK_CATEGORY = "Other" as const;
+
+// "Transfer" is NEUTRAL: money moving between the user's own accounts. Neutral
+// transactions are excluded from every financial aggregation (income, spending,
+// saving, score, budgets, analytics, charts, AI) — see analysis.service.
+export const NEUTRAL_CATEGORY = "Transfer" as const;
+
+// Categories a user can set a budget for (a neutral Transfer budget is
+// meaningless, so it's excluded here).
+export const BUDGETABLE_CATEGORIES = [
+  "Restaurants",
+  "Shopping",
+  "Bills",
+  "Transportation",
+  "Groceries",
+  "Subscriptions",
+  "Other",
+] as const;
 
 // Generic AI output discriminator (FR-7, FR-8, FR-11 all persist here).
 export const AI_OUTPUT_TYPES = ["RECOMMENDATION", "INSIGHT", "SCORE_TIP"] as const;

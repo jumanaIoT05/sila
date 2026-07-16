@@ -118,3 +118,12 @@ export interface NotificationDTO {
   title: string;
   message: string;
 }
+
+// Full on-demand AI analysis (all sections) returned by POST /api/ai.
+export interface AiAnalysisDTO {
+  financialHealth: string;
+  insights: string[];
+  recommendations: string[];
+  goalAdvice: string[];
+  budgetSuggestions: string[];
+}

@@ -85,10 +85,17 @@ export function parseSms(raw: string, receivedAt: Date = new Date()): ParsedSms 
   }
   const transactionType = matchType(text);
 
-  // Cash withdrawals (and anything the rules can't classify) fall back to
-  // "Other"; the user can re-categorize any transaction later.
+  // Classification defaults:
+  //  • Transfer → "Transfer" (neutral). We can't confidently tell internal vs
+  //    external from a single SMS, so per the rules we default to the neutral
+  //    Transfer category; the user can re-categorize it to an expense if needed.
+  //  • Cash withdrawal (and anything the rules can't classify) → "Other".
   const category: SpendingCategoryName =
-    transactionType === "Cash Withdrawal" ? "Other" : matchCategory(text);
+    transactionType === "Transfer"
+      ? "Transfer"
+      : transactionType === "Cash Withdrawal"
+        ? "Other"
+        : matchCategory(text);
 
   return {
     amount,

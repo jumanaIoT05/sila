@@ -14,6 +14,7 @@ interface VerifyResult {
   token: string;
   userId: number;
   isNewUser: boolean;
+  hasName: boolean;
 }
 
 function VerifyInner() {
@@ -40,7 +41,10 @@ function VerifyInner() {
     try {
       const res = await api.post<VerifyResult>("/auth/verify-otp", { phoneNumber: phone, code });
       setSession(res.token, phone);
-      router.replace(res.isNewUser ? "/banks" : "/dashboard");
+      // Onboarded (has accounts) → dashboard. Otherwise resume onboarding:
+      // no name yet → Enter Name; name set → Walkthrough / Get Started.
+      const next = !res.isNewUser ? "/dashboard" : !res.hasName ? "/name" : "/welcome";
+      router.replace(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verification failed");
     } finally {

@@ -22,7 +22,7 @@ export function WalletCard({
 
       <div className="mb-8 flex items-start justify-between">
         <Link
-          href="/accounts"
+          href="/accounts?add=1"
           className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium transition active:scale-95 hover:bg-white/25"
         >
           <span className="text-sm leading-none">＋</span> Add Account

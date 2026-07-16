@@ -12,7 +12,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Loading, ErrorState, Empty } from "@/components/ui/State";
 import { categoryIcon, categoryColor } from "@/lib/categoryColors";
-import { CATEGORIZABLE_CATEGORIES } from "@/config/constants";
+import { BUDGETABLE_CATEGORIES } from "@/config/constants";
 import { sar } from "@/lib/format";
 import type { BudgetDTO, GoalDTO, GoalsOverviewDTO } from "@/types";
 
@@ -65,7 +65,7 @@ function BudgetsTab() {
   const [suggesting, setSuggesting] = useState(false);
 
   const pickable = (lookups?.categories ?? []).filter((c) =>
-    (CATEGORIZABLE_CATEGORIES as readonly string[]).includes(c.categoryName)
+    (BUDGETABLE_CATEGORIES as readonly string[]).includes(c.categoryName)
   );
 
   function openCreate() {
@@ -110,13 +110,37 @@ function BudgetsTab() {
   }
 
   async function suggest() {
+    // Snapshot current budgets so the change can be undone.
+    const snapshot = (data ?? []).map((b) => ({
+      budgetId: b.budgetId,
+      recommendedAmount: b.recommendedAmount,
+    }));
     setSuggesting(true);
     try {
       await api.post("/budgets/suggest");
       await refetch();
-      toast.success("Budgets Updated");
+      toast.action("Budgets Updated", { actionLabel: "Undo", onAction: () => undoSuggest(snapshot) });
     } finally {
       setSuggesting(false);
+    }
+  }
+
+  // Restores the pre-suggestion budgets: delete any newly-created budgets and
+  // reset the previous ones to their old amounts. No page refresh.
+  async function undoSuggest(snapshot: Array<{ budgetId: number; recommendedAmount: number }>) {
+    try {
+      const current = await api.get<BudgetDTO[]>("/budgets");
+      const prevIds = new Set(snapshot.map((s) => s.budgetId));
+      await Promise.all(
+        current.filter((c) => !prevIds.has(c.budgetId)).map((c) => api.delete(`/budgets/${c.budgetId}`))
+      );
+      await Promise.all(
+        snapshot.map((s) => api.patch(`/budgets/${s.budgetId}`, { recommendedAmount: s.recommendedAmount }))
+      );
+      await refetch();
+      toast.success("Budgets Restored");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not undo");
     }
   }
 

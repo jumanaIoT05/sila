@@ -3,13 +3,15 @@
 // Aggregates the Smart Dashboard payload for a period (monthly by default):
 // total balance across accounts, top spending categories, period comparison,
 // dynamically-computed saving %, an overall summary, the latest transactions,
-// and live AI highlights. Read-only (nothing persisted).
+// and the latest PERSISTED AI highlights. Read-only (nothing persisted).
+// AI highlights are read from the last generated outputs — the dashboard never
+// triggers a provider call; AI is refreshed only on explicit user request.
 // =============================================================
 
 import { computeFinancials, type Period } from "./analysis.service";
 import { listAccounts, getTotalBalance } from "./account.service";
 import { listTransactions } from "./transaction.service";
-import { periodHighlights } from "./ai.service";
+import { getLatestHighlights } from "./ai.service";
 import { round2 } from "../util/money";
 import type { DashboardDTO } from "@/types";
 
@@ -22,7 +24,7 @@ export async function getDashboard(
       computeFinancials(userId, period),
       listAccounts(userId),
       getTotalBalance(userId),
-      periodHighlights(userId, period),
+      getLatestHighlights(userId),
       listTransactions(userId, { limit: 3 }),
     ]);
 

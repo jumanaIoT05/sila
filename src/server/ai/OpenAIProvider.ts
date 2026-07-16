@@ -1,39 +1,20 @@
-import type { AIProvider, AiContext } from "./AIProvider";
+import type { AIProvider, AiContext, AiAnalysis } from "./AIProvider";
+import { MockAIProvider } from "./MockAIProvider";
 
-// OpenAI-ready structure (FR-7/8/11). Not wired to the SDK by default —
-// this is the seam. Set AI_PROVIDER=openai and OPENAI_API_KEY, then
-// implement the fetch calls below. Kept dependency-free so the project
-// runs fully on the mock provider out of the box.
+// OpenAI-ready structure. Not wired to the SDK by default — this is the seam.
+// Set AI_PROVIDER=openai and OPENAI_API_KEY, then implement the API call in
+// analyze(). Until then it falls back to MockAIProvider so nothing breaks.
 export class OpenAIProvider implements AIProvider {
-  private apiKey: string;
+  private fallback = new MockAIProvider();
 
   constructor() {
-    this.apiKey = process.env.OPENAI_API_KEY ?? "";
-    if (!this.apiKey) {
-      throw new Error("AI_PROVIDER=openai requires OPENAI_API_KEY to be set.");
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn("[ai] OPENAI_API_KEY not set — OpenAIProvider will fall back to MockAIProvider.");
     }
   }
 
-  // Example shape for a real implementation:
-  // private async complete(prompt: string): Promise<string> {
-  //   const res = await fetch("https://api.openai.com/v1/chat/completions", {
-  //     method: "POST",
-  //     headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
-  //     body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }] }),
-  //   });
-  //   const json = await res.json();
-  //   return json.choices?.[0]?.message?.content ?? "";
-  // }
-
-  async generateRecommendations(_ctx: AiContext): Promise<string[]> {
-    throw new Error("OpenAIProvider.generateRecommendations not implemented — wire up the API here.");
-  }
-
-  async generateInsights(_ctx: AiContext): Promise<string[]> {
-    throw new Error("OpenAIProvider.generateInsights not implemented — wire up the API here.");
-  }
-
-  async generateScoreTip(_ctx: AiContext): Promise<string> {
-    throw new Error("OpenAIProvider.generateScoreTip not implemented — wire up the API here.");
+  async analyze(ctx: AiContext): Promise<AiAnalysis> {
+    // TODO: implement the OpenAI chat/completions call and map to AiAnalysis.
+    return this.fallback.analyze(ctx);
   }
 }

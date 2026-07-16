@@ -15,3 +15,14 @@ export async function getProfile(userId: number): Promise<ProfileDTO> {
     phoneNumber: user.phoneNumber,
   };
 }
+
+// Saves the user's name into the existing app_user table (no schema change).
+export async function updateName(userId: number, fullName: string): Promise<ProfileDTO> {
+  const name = fullName.trim();
+  if (!name) throw new AppError("Name is required", 422);
+  const user = await prisma.appUser.update({
+    where: { userId },
+    data: { fullName: name },
+  });
+  return { fullName: user.fullName ?? null, phoneNumber: user.phoneNumber };
+}
